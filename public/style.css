@@ -139,6 +139,48 @@ main { flex: 1; width: 100%; max-width: 1100px; margin: 0 auto; padding: 20px; d
 
 .chart-note { text-align: center; }
 
+.term-card { display: flex; flex-direction: column; gap: 12px; }
+.term-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+.term-btn {
+  background: var(--bg-elev); border: 1px solid var(--border); color: var(--muted);
+  padding: 5px 12px; border-radius: 8px; cursor: pointer; font-size: 12px; font-family: var(--mono);
+}
+.term-btn:hover:not(:disabled) { color: var(--text); border-color: var(--accent); }
+.term-btn:disabled { opacity: 0.4; cursor: default; }
+.term-btn.primary { color: var(--text); border-color: var(--accent); }
+
+.term-output {
+  background: #0a0c10;
+  color: #7ee787;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.5;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  height: 340px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+}
+
+.term-input-row { display: flex; gap: 8px; align-items: center; }
+.term-prompt { font-family: var(--mono); color: var(--sto); font-size: 14px; }
+.term-input-row input {
+  flex: 1;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 13px;
+  padding: 9px 12px;
+  outline: none;
+}
+.term-input-row input:focus { border-color: var(--accent); }
+
 footer { text-align: center; padding: 14px; border-top: 1px solid var(--border); }
 
 @media (max-width: 720px) {

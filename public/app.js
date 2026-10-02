@@ -62,11 +62,15 @@ function renderStatus(s) {
   const cpu = s.cpu;
   if (na(cpu)) {
     setText('cpu-value', '—');
-    setText('cpu-load', cpu && cpu.reason ? 'indisponível' : '');
+    setText('cpu-load', '');
+    setText('cpu-detail', cpu && cpu.reason ? cpu.reason : 'indisponível');
     setBar($('cpu-bar'), 0);
   } else {
     $('cpu-value').innerHTML = `${fmtPct(cpu.usagePercent) ?? '—'}<small>%</small>`;
     setText('cpu-load', cpu.loadAverage ? `load ${cpu.loadAverage['1m'].toFixed(2)}` : '');
+    setText('cpu-detail', cpu.perCoreUsagePercent && cpu.perCoreUsagePercent.length
+      ? `núcleos: ${cpu.perCoreUsagePercent.map((v) => `${v.toFixed(0)}%`).join(' · ')}`
+      : `${cpu.cores ?? '—'} núcleos`);
     setBar($('cpu-bar'), cpu.usagePercent);
   }
 
@@ -226,6 +230,130 @@ document.querySelectorAll('#range-btns button').forEach((btn) => {
     currentHours = Number(btn.dataset.hours);
     refreshHistory();
   });
+});
+
+// ===== Terminal =====
+
+const MAX_TERM_LEN = 200000;
+const term = {
+  es: null,
+  id: null,
+  token: sessionStorage.getItem('am-term-token') || '',
+  history: [],
+  histIdx: -1,
+  len: 0,
+};
+
+function termAppend(text) {
+  const pre = $('term-output');
+  pre.appendChild(document.createTextNode(text));
+  term.len += text.length;
+  while (term.len > MAX_TERM_LEN && pre.firstChild) {
+    term.len -= pre.firstChild.textContent.length;
+    pre.removeChild(pre.firstChild);
+  }
+  pre.scrollTop = pre.scrollHeight;
+}
+
+function termSetConnected(on) {
+  $('term-output').hidden = !on;
+  $('term-form').hidden = !on;
+  $('term-ctrlc').disabled = !on;
+  $('term-clear').disabled = !on;
+  $('term-toggle').textContent = on ? 'desconectar' : 'conectar';
+  $('term-toggle').classList.toggle('primary', !on);
+  $('term-state').textContent = on ? `sessão ${term.id ? term.id.slice(0, 6) : ''}` : 'desconectado';
+  if (on) $('term-input').focus();
+}
+
+async function termApi(path, opts = {}, retried = false) {
+  opts.headers = Object.assign({}, opts.headers, { 'Content-Type': 'application/json' });
+  if (term.token) opts.headers['x-terminal-token'] = term.token;
+  const res = await fetch(path, opts);
+  if (res.status === 401 && !retried) {
+    const t = prompt('Token do terminal (TERMINAL_TOKEN):');
+    if (!t) throw new Error('token necessário');
+    term.token = t;
+    sessionStorage.setItem('am-term-token', t);
+    return termApi(path, opts, true);
+  }
+  return res;
+}
+
+async function termConnect() {
+  if (term.id) return termDisconnect();
+  try {
+    const res = await termApi('/api/terminal/start', { method: 'POST', body: '{}' });
+    if (res.status === 403) {
+      termAppend('terminal desativado no servidor (TERMINAL_ENABLED=0)\n');
+      $('term-output').hidden = false;
+      return;
+    }
+    if (!res.ok) throw new Error((await res.json()).error || `HTTP ${res.status}`);
+    const j = await res.json();
+    term.id = j.sessionId;
+
+    const qs = term.token ? `?token=${encodeURIComponent(term.token)}` : '';
+    term.es = new EventSource(`/api/terminal/stream/${term.id}${qs}`);
+    term.es.onmessage = (e) => {
+      const m = JSON.parse(e.data);
+      if (m.type === 'output') termAppend(m.data);
+      if (m.type === 'exit') {
+        termAppend(`\n[shell encerrado, código ${m.code ?? '?'}]\n`);
+        termCleanup();
+      }
+    };
+    term.es.onerror = () => {
+      termAppend('\n[conexão perdida]\n');
+      termCleanup();
+    };
+    termSetConnected(true);
+  } catch (err) {
+    termAppend(`\n[erro: ${err.message}]\n`);
+    $('term-output').hidden = false;
+    termCleanup();
+  }
+}
+
+function termCleanup() {
+  if (term.es) { term.es.close(); term.es = null; }
+  term.id = null;
+  termSetConnected(false);
+}
+
+function termDisconnect() {
+  if (term.id) termApi(`/api/terminal/stop/${term.id}`, { method: 'POST', body: '{}' }).catch(() => {});
+  termCleanup();
+}
+
+$('term-toggle').addEventListener('click', termConnect);
+$('term-clear').addEventListener('click', () => { $('term-output').textContent = ''; term.len = 0; });
+$('term-ctrlc').addEventListener('click', () => {
+  if (term.id) termApi(`/api/terminal/signal/${term.id}`, { method: 'POST', body: JSON.stringify({ signal: 'SIGINT' }) }).catch(() => {});
+});
+
+$('term-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const input = $('term-input');
+  const cmd = input.value;
+  input.value = '';
+  if (!term.id) return;
+  term.history.push(cmd);
+  term.histIdx = term.history.length;
+  termApi(`/api/terminal/input/${term.id}`, { method: 'POST', body: JSON.stringify({ data: `${cmd}\n` }) })
+    .then((res) => { if (res.status === 404) { termAppend('[sessão expirada]\n'); termCleanup(); } })
+    .catch((err) => termAppend(`[erro: ${err.message}]\n`));
+});
+
+$('term-input').addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (term.histIdx > 0) { term.histIdx--; e.target.value = term.history[term.histIdx]; }
+  } else if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    if (term.histIdx < term.history.length - 1) { term.histIdx++; e.target.value = term.history[term.histIdx]; }
+    else { term.histIdx = term.history.length; e.target.value = ''; }
+  }
 });
 
 refreshStatus();

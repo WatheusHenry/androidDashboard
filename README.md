@@ -101,6 +101,11 @@ Copie `.env.example` para `.env` e ajuste. Variáveis reais têm precedência.
 | `HISTORY_RETENTION_DAYS` | `7` | Retenção do histórico (dias) |
 | `STORAGE_PATH` | `/data` | Mount do armazenamento principal |
 | `MOCK_DATA` | — | `1` ativa dados falsos |
+| `TERMINAL_ENABLED` | `1` | `0` desativa o terminal web |
+| `TERMINAL_TOKEN` | — | Token exigido pelo terminal (recomendado) |
+| `TERMINAL_SHELL` | `bash` | Shell do terminal |
+| `TERMINAL_IDLE_TIMEOUT` | `600000` | Encerra sessão ociosa (ms) |
+| `TERMINAL_MAX_SESSIONS` | `2` | Sessões simultâneas |
 
 Ex.: `PORT=9000 npm start`
 
@@ -178,6 +183,26 @@ Timestamps em ISO-8601 (status) e epoch-ms (histórico). Métrica indisponível 
 | `GET /api/history?hours=3` | Snapshots persistidos (0.1–168h) |
 
 Teste rápido: `npm run status`
+
+## Terminal web
+
+O dashboard inclui um terminal (`bash -i` via pipes, sem `node-pty`/compilação).
+Útil para administrar o aparelho sem SSH. Limitações conscientes: programas
+interativos de tela cheia (`vim`, `htop`) não funcionam; comandos comuns
+(`pkg install`, `npm`, `ls`, `git`…) funcionam normalmente.
+
+- Fluxo: `POST /api/terminal/start` → SSE `GET /api/terminal/stream/:id` →
+  `POST /api/terminal/input/:id` (dados) · `POST /api/terminal/signal/:id`
+  (Ctrl+C = SIGINT no grupo do processo) · `POST /api/terminal/stop/:id`
+- Sessões ociosas são encerradas após `TERMINAL_IDLE_TIMEOUT` (padrão 10 min);
+  máximo de `TERMINAL_MAX_SESSIONS` (padrão 2) — a mais antiga é derrubada.
+- Buffer de saída limitado a 256 KB por sessão (replay ao reconectar).
+
+> **SEGURANÇA**: com `TERMINAL_ENABLED=1` e sem `TERMINAL_TOKEN`, **qualquer
+> dispositivo na rede local executa comandos como o usuário do Termux**.
+> Defina um token no `.env` (o dashboard pede uma vez e guarda na sessão do
+> navegador) ou desative com `TERMINAL_ENABLED=0`. Nunca exponha a porta à
+> internet — use VPN ou túnel SSH.
 
 ## Schema do histórico (SQLite)
 

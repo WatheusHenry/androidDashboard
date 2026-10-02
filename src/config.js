@@ -46,6 +46,11 @@ const config = {
   historyRetentionDays: num(process.env.HISTORY_RETENTION_DAYS, 7),
   storagePath: process.env.STORAGE_PATH || '/data',
   mock: process.env.MOCK_DATA === '1' || process.argv.includes('--mock'),
+  terminalEnabled: process.env.TERMINAL_ENABLED !== '0',
+  terminalToken: process.env.TERMINAL_TOKEN || '',
+  terminalShell: process.env.TERMINAL_SHELL || 'bash',
+  terminalIdleTimeout: num(process.env.TERMINAL_IDLE_TIMEOUT, 10 * 60 * 1000),
+  terminalMaxSessions: num(process.env.TERMINAL_MAX_SESSIONS, 2),
 };
 
 module.exports = config;

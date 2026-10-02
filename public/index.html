@@ -42,6 +42,7 @@
         <div class="metric-head"><h3>CPU</h3><span class="metric-sub" id="cpu-load">—</span></div>
         <div class="metric-value" id="cpu-value">—</div>
         <div class="bar"><div class="bar-fill cpu" id="cpu-bar"></div></div>
+        <p class="metric-foot muted" id="cpu-detail">—</p>
       </div>
 
       <div class="card metric-card">
@@ -83,6 +84,24 @@
         <div class="chart"><h4>STORAGE %</h4><svg id="chart-sto" viewBox="0 0 600 140" preserveAspectRatio="none"></svg></div>
       </div>
       <p class="muted chart-note" id="history-note"></p>
+    </section>
+
+    <section class="card term-card">
+      <div class="chart-head">
+        <h3>TERMINAL</h3>
+        <div class="term-controls">
+          <span class="muted" id="term-state">desconectado</span>
+          <button id="term-ctrlc" class="term-btn" disabled title="Enviar SIGINT">Ctrl+C</button>
+          <button id="term-clear" class="term-btn" disabled>limpar</button>
+          <button id="term-toggle" class="term-btn primary">conectar</button>
+        </div>
+      </div>
+      <pre id="term-output" class="term-output" hidden></pre>
+      <form id="term-form" class="term-input-row" hidden autocomplete="off">
+        <span class="term-prompt">$</span>
+        <input id="term-input" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="comando… (↑/↓ histórico)" />
+        <button type="submit" class="term-btn primary">enviar</button>
+      </form>
     </section>
   </main>
 

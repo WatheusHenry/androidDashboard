@@ -10,6 +10,7 @@ function buildApp(state) {
 
   app.disable('x-powered-by');
   app.use(express.static(path.join(config.root, 'public')));
+  app.use('/api/terminal', require('./api/terminal')());
   app.use('/api', require('./api/routes')(state));
 
   return app;
@@ -31,6 +32,14 @@ function main() {
   const server = app.listen(config.port, config.host, () => {
     console.log(`[server] android-monitor on http://${config.host}:${config.port}`);
     console.log(`[server] mock=${config.mock} collect=${config.collectInterval}ms history=${config.historyInterval}ms db=${db ? config.databasePath : 'disabled'}`);
+    if (config.terminalEnabled) {
+      console.log(`[server] terminal ENABLED (shell: ${config.terminalShell})`);
+      if (!config.terminalToken) {
+        console.warn('[server] AVISO: terminal sem token — qualquer dispositivo na rede local pode executar comandos. Defina TERMINAL_TOKEN no .env para proteger.');
+      }
+    } else {
+      console.log('[server] terminal disabled');
+    }
   });
 
   startCollector(state, config, db);
@@ -38,6 +47,7 @@ function main() {
   const shutdown = (sig) => {
     console.log(`[server] ${sig} received, shutting down`);
     stopCollector();
+    try { require('./terminal').destroyAll(); } catch { /* noop */ }
     server.close(() => {
       if (db) db.close();
       process.exit(0);
