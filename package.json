@@ -1,0 +1,20 @@
+{
+  "name": "android-monitor",
+  "version": "0.1.0",
+  "description": "Lightweight self-monitoring dashboard for Android/Termux",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning src/server.js",
+    "dev": "node --watch --disable-warning=ExperimentalWarning src/server.js",
+    "mock": "node --disable-warning=ExperimentalWarning src/server.js --mock",
+    "status": "node -e \"fetch('http://localhost:'+(process.env.PORT||8080)+'/api/status').then(r=>r.json()).then(j=>console.log(JSON.stringify(j,null,2)))\""
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  },
+  "license": "MIT"
+}

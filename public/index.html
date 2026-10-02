@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Android Monitor</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📱</text></svg>" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-dot" id="health-dot"></span>
+      <h1>ANDROID MONITOR</h1>
+      <span class="badge" id="mock-badge" hidden>MOCK</span>
+    </div>
+    <div class="topbar-right">
+      <span id="last-update" class="muted">—</span>
+      <button id="theme-toggle" class="icon-btn" title="Alternar tema">◐</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="card device-card" id="device-card">
+      <div class="device-main">
+        <div class="device-icon">📱</div>
+        <div>
+          <h2 id="device-model">—</h2>
+          <p class="muted" id="device-details">—</p>
+        </div>
+      </div>
+      <div class="device-meta">
+        <div><span class="meta-label">UPTIME</span><span class="meta-value" id="device-uptime">—</span></div>
+        <div><span class="meta-label">CORES</span><span class="meta-value" id="device-cores">—</span></div>
+        <div><span class="meta-label">IP</span><span class="meta-value" id="device-ip">—</span></div>
+        <div><span class="meta-label">INTERFACE</span><span class="meta-value" id="device-iface">—</span></div>
+      </div>
+    </section>
+
+    <section class="grid">
+      <div class="card metric-card">
+        <div class="metric-head"><h3>CPU</h3><span class="metric-sub" id="cpu-load">—</span></div>
+        <div class="metric-value" id="cpu-value">—</div>
+        <div class="bar"><div class="bar-fill cpu" id="cpu-bar"></div></div>
+      </div>
+
+      <div class="card metric-card">
+        <div class="metric-head"><h3>RAM</h3><span class="metric-sub" id="ram-swap">—</span></div>
+        <div class="metric-value" id="ram-value">—</div>
+        <div class="bar"><div class="bar-fill ram" id="ram-bar"></div></div>
+        <p class="metric-foot muted" id="ram-detail">—</p>
+      </div>
+
+      <div class="card metric-card">
+        <div class="metric-head"><h3>STORAGE <span class="chip" id="sto-path">/data</span></h3></div>
+        <div class="metric-value" id="sto-value">—</div>
+        <div class="bar"><div class="bar-fill sto" id="sto-bar"></div></div>
+        <p class="metric-foot muted" id="sto-detail">—</p>
+      </div>
+
+      <div class="card metric-card">
+        <div class="metric-head"><h3>BATTERY</h3><span class="metric-sub" id="bat-status">—</span></div>
+        <div class="metric-value" id="bat-value">—</div>
+        <div class="bar"><div class="bar-fill bat" id="bat-bar"></div></div>
+        <p class="metric-foot muted" id="bat-detail">—</p>
+      </div>
+    </section>
+
+    <section class="card chart-card">
+      <div class="chart-head">
+        <h3>HISTÓRICO</h3>
+        <div class="range-btns" id="range-btns">
+          <button data-hours="1">1h</button>
+          <button data-hours="3" class="active">3h</button>
+          <button data-hours="6">6h</button>
+          <button data-hours="24">24h</button>
+        </div>
+      </div>
+      <div class="charts">
+        <div class="chart"><h4>CPU %</h4><svg id="chart-cpu" viewBox="0 0 600 140" preserveAspectRatio="none"></svg></div>
+        <div class="chart"><h4>RAM %</h4><svg id="chart-ram" viewBox="0 0 600 140" preserveAspectRatio="none"></svg></div>
+        <div class="chart"><h4>BATTERY %</h4><svg id="chart-bat" viewBox="0 0 600 140" preserveAspectRatio="none"></svg></div>
+        <div class="chart"><h4>STORAGE %</h4><svg id="chart-sto" viewBox="0 0 600 140" preserveAspectRatio="none"></svg></div>
+      </div>
+      <p class="muted chart-note" id="history-note"></p>
+    </section>
+  </main>
+
+  <footer class="muted">android-monitor · atualiza a cada 5s · histórico a cada 60s</footer>
+  <script src="app.js"></script>
+</body>
+</html>
