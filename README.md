@@ -217,9 +217,11 @@ WAL ativado; limpeza automática por retenção na inicialização.
 
 ## Fontes de dados (nenhum comando shell no hot path, exceto bateria)
 
-- CPU: `/proc/stat` (delta entre coletas); fallback quando bloqueado por SELinux:
+- CPU: `/proc/stat` (delta entre coletas); fallbacks quando bloqueado por SELinux,
+  nesta ordem: `cpuidle` sysfs (`/sys/.../cpuidle/state*/time`, uso real por núcleo),
   `/proc/loadavg` (estimativa load1/cores), `/proc/pressure/cpu` (PSI) e
-  `/sys/.../cpufreq/scaling_cur_freq` (frequência por núcleo)
+  `/sys/.../cpufreq/scaling_cur_freq` (frequência por núcleo). A fonte usada vem
+  em `usageSource` (`proc.stat` | `cpuidle-sysfs` | `loadavg-estimate`)
 - RAM/swap: `/proc/meminfo`
 - Uptime: `/proc/uptime`
 - Storage: `fs.statfsSync()` (statfs direto, sem `df`)

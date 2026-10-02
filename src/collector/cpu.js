@@ -82,6 +82,84 @@ function readFreqs(cores) {
   return freqs.length ? freqs : null;
 }
 
+let freqRangeCache;
+function readFreqRange(cores) {
+  if (freqRangeCache !== undefined) return freqRangeCache;
+  const min = [];
+  const max = [];
+  for (let i = 0; i < (cores || 8) && i < 16; i++) {
+    try {
+      min.push(Math.round(Number(fs.readFileSync(`/sys/devices/system/cpu/cpu${i}/cpufreq/cpuinfo_min_freq`, 'utf8')) / 1000));
+      max.push(Math.round(Number(fs.readFileSync(`/sys/devices/system/cpu/cpu${i}/cpufreq/cpuinfo_max_freq`, 'utf8')) / 1000));
+    } catch {
+      break;
+    }
+  }
+  freqRangeCache = min.length ? { min, max } : null;
+  return freqRangeCache;
+}
+
+// cpuidle sysfs: cumulative microseconds per idle state per core.
+// busy% = (wallDelta - idleDelta) / wallDelta. Works on devices where
+// /proc/stat is SELinux-blocked but /sys cpufreq/cpuidle is readable.
+let prevIdle = null;
+
+function monotonicUs() {
+  return Number(process.hrtime.bigint() / 1000n);
+}
+
+function readCpuidle() {
+  const perCore = [];
+  for (let i = 0; i < 16; i++) {
+    const base = `/sys/devices/system/cpu/cpu${i}/cpuidle`;
+    let states;
+    try {
+      states = fs.readdirSync(base).filter((d) => d.startsWith('state'));
+    } catch {
+      break;
+    }
+    if (!states.length) break;
+    let sum = 0;
+    let ok = false;
+    for (const st of states) {
+      try {
+        const t = Number(fs.readFileSync(`${base}/${st}/time`, 'utf8'));
+        if (Number.isFinite(t)) { sum += t; ok = true; }
+      } catch { /* state not readable */ }
+    }
+    if (!ok) break;
+    perCore.push(sum);
+  }
+  return perCore.length ? perCore : null;
+}
+
+function cpuidleUsage(cores) {
+  const idleNow = readCpuidle();
+  if (!idleNow) return null;
+  const now = monotonicUs();
+  let result = null;
+  if (prevIdle && prevIdle.perCore.length === idleNow.length) {
+    const wallDelta = now - prevIdle.wall;
+    if (wallDelta > 0) {
+      const usages = idleNow
+        .map((v, i) => {
+          const idleDelta = v - prevIdle.perCore[i];
+          if (idleDelta < 0 || idleDelta > wallDelta * 1.05) return null;
+          return round(Math.max(0, Math.min(100, ((wallDelta - idleDelta) / wallDelta) * 100)), 1);
+        })
+        .filter((v) => v !== null);
+      if (usages.length === idleNow.length && usages.length > 0) {
+        result = {
+          usage: round(usages.reduce((a, b) => a + b, 0) / usages.length, 1),
+          perCore: usages,
+        };
+      }
+    }
+  }
+  prevIdle = { perCore: idleNow, wall: now };
+  return result;
+}
+
 function getCores() {
   const n = os.cpus().length;
   if (n > 0) return n;
@@ -131,8 +209,19 @@ function collectCpu() {
   }
 
   const loadAverage = readLoadAvg();
-  const pressure = statBlocked || usage === null ? readPsi() : null;
-  const freqsMHz = statBlocked || usage === null ? readFreqs(cores || 8) : null;
+  const needFallback = usage === null;
+  const pressure = needFallback ? readPsi() : null;
+  const freqsMHz = needFallback ? readFreqs(cores || 8) : null;
+  const freqRange = needFallback && freqsMHz ? readFreqRange(cores) : null;
+
+  if (needFallback) {
+    const idle = cpuidleUsage(cores);
+    if (idle) {
+      usage = idle.usage;
+      perCore = idle.perCore;
+      source = 'cpuidle-sysfs';
+    }
+  }
 
   let estimated = null;
   if (usage === null && loadAverage && cores) {
@@ -150,6 +239,7 @@ function collectCpu() {
     ...(usage === null && estimated !== null ? { usageEstimatePercent: estimated } : {}),
     ...(pressure ? { pressure } : {}),
     ...(freqsMHz ? { freqsMHz } : {}),
+    ...(freqRange ? { freqRangeMHz: freqRange } : {}),
     ...(usage === null && estimated === null ? { reason } : {}),
   };
   if (!out.available) out.reason = reason;

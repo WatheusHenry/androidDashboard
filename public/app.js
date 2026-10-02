@@ -63,15 +63,18 @@ function renderStatus(s) {
   const cpuPct = na(cpu) ? null : (cpu.usagePercent ?? cpu.usageEstimatePercent ?? null);
   if (cpuPct === null) {
     setText('cpu-value', '—');
-    setText('cpu-load', '');
-    setText('cpu-detail', cpu && cpu.reason ? cpu.reason : 'indisponível');
+    setText('cpu-load', cpu && cpu.loadAverage ? `load ${cpu.loadAverage['1m'].toFixed(2)}` : '');
+    const parts = [cpu && cpu.reason ? cpu.reason : 'indisponível'];
+    if (cpu && cpu.freqsMHz) parts.push(`freq: ${cpu.freqsMHz.map((f) => `${f}MHz`).join(' · ')}`);
+    setText('cpu-detail', parts.join(' · '));
     setBar($('cpu-bar'), 0);
   } else {
     const estimated = cpu.usagePercent === null || cpu.usagePercent === undefined;
     $('cpu-value').innerHTML = `${estimated ? '≈' : ''}${fmtPct(cpuPct)}<small>%</small>`;
     setText('cpu-load', cpu.loadAverage ? `load ${cpu.loadAverage['1m'].toFixed(2)}` : '');
     const d = [];
-    if (estimated) d.push('estimado via load avg (SELinux bloqueia /proc/stat)');
+    if (cpu.usageSource === 'loadavg-estimate') d.push('estimado via load avg (SELinux bloqueia /proc/stat)');
+    else if (cpu.usageSource === 'cpuidle-sysfs') d.push('via cpuidle/sysfs (SELinux bloqueia /proc/stat)');
     if (cpu.perCoreUsagePercent && cpu.perCoreUsagePercent.length) {
       d.push(`núcleos: ${cpu.perCoreUsagePercent.map((v) => `${v.toFixed(0)}%`).join(' · ')}`);
     } else if (cpu.freqsMHz) {
