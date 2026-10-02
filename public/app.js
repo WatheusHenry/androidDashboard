@@ -60,18 +60,28 @@ function renderStatus(s) {
   setText('device-iface', na(net) ? '—' : net.interface);
 
   const cpu = s.cpu;
-  if (na(cpu)) {
+  const cpuPct = na(cpu) ? null : (cpu.usagePercent ?? cpu.usageEstimatePercent ?? null);
+  if (cpuPct === null) {
     setText('cpu-value', '—');
     setText('cpu-load', '');
     setText('cpu-detail', cpu && cpu.reason ? cpu.reason : 'indisponível');
     setBar($('cpu-bar'), 0);
   } else {
-    $('cpu-value').innerHTML = `${fmtPct(cpu.usagePercent) ?? '—'}<small>%</small>`;
+    const estimated = cpu.usagePercent === null || cpu.usagePercent === undefined;
+    $('cpu-value').innerHTML = `${estimated ? '≈' : ''}${fmtPct(cpuPct)}<small>%</small>`;
     setText('cpu-load', cpu.loadAverage ? `load ${cpu.loadAverage['1m'].toFixed(2)}` : '');
-    setText('cpu-detail', cpu.perCoreUsagePercent && cpu.perCoreUsagePercent.length
-      ? `núcleos: ${cpu.perCoreUsagePercent.map((v) => `${v.toFixed(0)}%`).join(' · ')}`
-      : `${cpu.cores ?? '—'} núcleos`);
-    setBar($('cpu-bar'), cpu.usagePercent);
+    const d = [];
+    if (estimated) d.push('estimado via load avg (SELinux bloqueia /proc/stat)');
+    if (cpu.perCoreUsagePercent && cpu.perCoreUsagePercent.length) {
+      d.push(`núcleos: ${cpu.perCoreUsagePercent.map((v) => `${v.toFixed(0)}%`).join(' · ')}`);
+    } else if (cpu.freqsMHz) {
+      d.push(`freq: ${cpu.freqsMHz.map((f) => `${f}MHz`).join(' · ')}`);
+    } else {
+      d.push(`${cpu.cores ?? '—'} núcleos`);
+    }
+    if (cpu.pressure && cpu.pressure.some) d.push(`pressão CPU: ${cpu.pressure.some.avg10}%`);
+    setText('cpu-detail', d.join(' · '));
+    setBar($('cpu-bar'), cpuPct);
   }
 
   const mem = s.memory;

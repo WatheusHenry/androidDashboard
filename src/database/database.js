@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS metrics (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   timestamp INTEGER NOT NULL,
   cpu_usage REAL,
+  cpu_estimated INTEGER DEFAULT 0,
   load1 REAL,
   ram_total_bytes INTEGER,
   ram_used_bytes INTEGER,
@@ -21,7 +22,6 @@ CREATE TABLE IF NOT EXISTS metrics (
 );
 CREATE INDEX IF NOT EXISTS idx_metrics_timestamp ON metrics(timestamp);
 `;
-
 const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 
 module.exports = function initDatabase(config) {
@@ -36,12 +36,18 @@ module.exports = function initDatabase(config) {
   const db = new DatabaseSync(config.databasePath);
   db.exec('PRAGMA journal_mode = WAL;');
   db.exec(SCHEMA);
+  try {
+    db.exec('ALTER TABLE metrics ADD COLUMN cpu_estimated INTEGER DEFAULT 0;');
+    console.log('[history] migrated: added cpu_estimated column');
+  } catch {
+    // column already exists
+  }
 
   const insert = db.prepare(`
-    INSERT INTO metrics (timestamp, cpu_usage, load1, ram_total_bytes, ram_used_bytes,
+    INSERT INTO metrics (timestamp, cpu_usage, cpu_estimated, load1, ram_total_bytes, ram_used_bytes,
       ram_available_bytes, ram_percent, swap_used_bytes, storage_used_bytes,
       storage_percent, battery_percent, battery_temp)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   const selectRange = db.prepare('SELECT * FROM metrics WHERE timestamp >= ? ORDER BY timestamp ASC');
   const deleteOld = db.prepare('DELETE FROM metrics WHERE timestamp < ?');
@@ -53,9 +59,12 @@ module.exports = function initDatabase(config) {
       const mem = state.memory || {};
       const sto = (state.storage && state.storage.primary) || {};
       const bat = state.battery || {};
+      const cpuValue = num(cpu.usagePercent) ?? num(cpu.usageEstimatePercent);
+      const cpuEstimated = num(cpu.usagePercent) === null && cpuValue !== null ? 1 : 0;
       insert.run(
         Date.now(),
-        num(cpu.usagePercent),
+        cpuValue,
+        cpuEstimated,
         num(cpu.loadAverage && cpu.loadAverage['1m']),
         num(mem.totalBytes),
         num(mem.usedBytes),

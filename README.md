@@ -140,6 +140,7 @@ Abra o app Termux:Boot uma vez para ativar. Para parar manualmente:
 | `history disabled: node:sqlite unavailable` | Node < 22.5 — `pkg upgrade nodejs` |
 | Bateria `available: false` | App Termux:API não instalado ou `pkg install termux-api` faltando |
 | CPU/RAM `available: false` no Termux | Inesperado — verifique se `/proc/stat` e `/proc/meminfo` são legíveis |
+| CPU mostra `≈` / "SELinux bloqueia /proc/stat" | Comum em Android 12+: o sistema nega leitura de `/proc/stat` para apps (sem root não há uso exato; `top`/`htop` falham igual). O monitor usa estimativa por load average + PSI + frequência dos núcleos como fallback |
 | Histórico vazio no gráfico | Aguarde alguns minutos (snapshot a cada 60s) |
 | Processo morre com tela desligada | `termux-wake-lock` + desative otimização de bateria |
 
@@ -175,7 +176,7 @@ Timestamps em ISO-8601 (status) e epoch-ms (histórico). Métrica indisponível 
 |---|---|
 | `GET /api/status` | Snapshot completo (system, cpu, memory, storage, battery, network) |
 | `GET /api/system` | Modelo, fabricante, versão Android, kernel, uptime, cores |
-| `GET /api/cpu` | `usagePercent` (delta de `/proc/stat`), `loadAverage`, `cores` |
+| `GET /api/cpu` | `usagePercent` (delta de `/proc/stat`) ou `usageEstimatePercent` (via load avg quando SELinux bloqueia), `loadAverage`, `pressure` (PSI), `freqsMHz`, `cores` |
 | `GET /api/memory` | RAM total/usada/disponível, swap |
 | `GET /api/storage` | `primary` (mount `/data`) + `mounts` (outros, separados) |
 | `GET /api/battery` | percentual, status, temperatura, saúde, fonte |
@@ -216,7 +217,9 @@ WAL ativado; limpeza automática por retenção na inicialização.
 
 ## Fontes de dados (nenhum comando shell no hot path, exceto bateria)
 
-- CPU: `/proc/stat` (delta entre coletas), `/proc/loadavg`
+- CPU: `/proc/stat` (delta entre coletas); fallback quando bloqueado por SELinux:
+  `/proc/loadavg` (estimativa load1/cores), `/proc/pressure/cpu` (PSI) e
+  `/sys/.../cpufreq/scaling_cur_freq` (frequência por núcleo)
 - RAM/swap: `/proc/meminfo`
 - Uptime: `/proc/uptime`
 - Storage: `fs.statfsSync()` (statfs direto, sem `df`)
